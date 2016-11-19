@@ -18,6 +18,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.vk.sdk.api.VKApi;
@@ -30,6 +31,7 @@ import com.vk.sdk.api.model.VKList;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.w3c.dom.Text;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -41,15 +43,16 @@ import java.io.OutputStreamWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 public class GameActivity2 extends AppCompatActivity {
-    public int RandomSongNumber,newRandomSongNumber, oo = 0, o = 0,win=0;
+    public int oo = 0,voo=0, o = 0,win=0;
     public long Start, End, Points;
-    private static final String mytag = "***************************";
-    public MediaPlayer mediaPlayer;
+    public MediaPlayer mediaPlayer,mediaPlayer1;
     public AudioManager am;
     private static long back_pressed;
     public Button button1, button2, button3, button4;
+    public int newRandomSongNumber[] = new int[5];
     public String SONGS[][] = new String[25][2], were = new String(), WORD,
             RIGHT_CHOICES = new String(), song,genre;
     public List<String>
@@ -60,10 +63,13 @@ public class GameActivity2 extends AppCompatActivity {
             acdc_list,
             deeppurple_list ,
             list;
-
+    public boolean finish = true, stop = false, exit = true,completed = false,zapros=false;
+    public Load_music load_songs;
+    public Play_music play_music;
+    public Count counter;
+    public TextView song_time;
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        Log.d(mytag,"oncreate"+String.valueOf(System.currentTimeMillis()));
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
@@ -71,11 +77,11 @@ public class GameActivity2 extends AppCompatActivity {
         setContentView(R.layout.activity_game2);
         Intent intent = getIntent();
         systemofadown_list = Arrays.asList(getString(R.string.system_of_a_down).split(","));
-                slipknot_list = Arrays.asList(getString(R.string.slipknot).split(","));
-                rammstein_list = Arrays.asList(getString(R.string.rammstein).split(","));
-                metallica_list = Arrays.asList(getString(R.string.metallica).split(","));
-                acdc_list = Arrays.asList(getString(R.string.acdc).split(","));
-                deeppurple_list = Arrays.asList(getString(R.string.deep_purple).split(","));
+        slipknot_list = Arrays.asList(getString(R.string.slipknot).split(","));
+        rammstein_list = Arrays.asList(getString(R.string.rammstein).split(","));
+        metallica_list = Arrays.asList(getString(R.string.metallica).split(","));
+        acdc_list = Arrays.asList(getString(R.string.acdc).split(","));
+        deeppurple_list = Arrays.asList(getString(R.string.deep_purple).split(","));
         am = (AudioManager) getSystemService(AUDIO_SERVICE);
         button1 = (Button) findViewById(R.id.button1);
         button2 = (Button) findViewById(R.id.button2);
@@ -85,9 +91,10 @@ public class GameActivity2 extends AppCompatActivity {
         button2.setClickable(false);
         button3.setClickable(false);
         button4.setClickable(false);
+        song_time = (TextView) findViewById(R.id.time);
         Random randomGenerator = new Random();
-        RandomSongNumber = randomGenerator.nextInt(4);
-        newRandomSongNumber = RandomSongNumber;
+        counter = new Count();
+        mediaPlayer = new MediaPlayer();
         String yesorno = intent.getStringExtra("mix?");
         if (yesorno.equalsIgnoreCase("no")) {
             WORD = intent.getStringExtra("artist").toLowerCase();
@@ -121,15 +128,50 @@ public class GameActivity2 extends AppCompatActivity {
             WORD = intent.getStringExtra("genre");
         }
         o = 0;
-        MyTask abc = new MyTask();
-        abc.execute();
-        Log.d(mytag,"oncreate"+String.valueOf(System.currentTimeMillis()));
+        newRandomSongNumber[0] = randomGenerator.nextInt(4);
+        newRandomSongNumber[1] = randomGenerator.nextInt(4);
+        newRandomSongNumber[2] = randomGenerator.nextInt(4);
+        newRandomSongNumber[3] = randomGenerator.nextInt(4);
+        l();
     }
-
-    class MyTask extends AsyncTask<Void, Void, Void> {
+    public void l(){
+        load_songs = new Load_music();
+        load_songs.execute();
+    }
+    public void v(){
+        Zapros zap = new Zapros();
+        zap.execute();
+    }
+    class Zapros extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
-            Log.d(mytag,"mytask"+String.valueOf(System.currentTimeMillis()));
+            Log.e("Ee",String.valueOf(voo*4+newRandomSongNumber[voo]));
+            VKRequest request = VKApi.audio().search(VKParameters.from(
+                    VKApiConst.Q, SONGS[voo*4+newRandomSongNumber[voo]][0])
+            );
+            request.executeWithListener(new VKRequest.VKRequestListener() {
+                @Override
+                public void onComplete(VKResponse response) {
+                    super.onComplete(response);
+                    VKApiAudio audio = ((VKList<VKApiAudio>) response.parsedModel).get(0);
+                    Log.d(audio.artist,audio.title);
+                    Log.d("eee","делаем запрос!2");
+                    SONGS[voo*4+newRandomSongNumber[voo]][1] = audio.url;
+                    if (voo<3) {
+                        voo++;
+                        v();
+                    } else {
+                        oo=0;
+                        DOITMOTHERFUCKER();
+                    }
+                }
+            });
+            return null;
+        }
+    }
+    class Load_music extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected Void doInBackground(Void... params) {
             Random ran = new Random();
             String artist, title;
             int metal_random_group = ran.nextInt(3),//если добавил групп, то тут менять
@@ -178,104 +220,97 @@ public class GameActivity2 extends AppCompatActivity {
             song = artist + title;
             were += song + ' ';
             song = song.toLowerCase();
-            if (o == newRandomSongNumber) {
-                VKRequest request = VKApi.audio().search(VKParameters.from(
-                        VKApiConst.Q, song, VKApiConst.COUNT, 10)
-                );
-                request.executeWithListener(new VKRequest.VKRequestListener() {
-                    @Override
-                    public void onComplete(VKResponse response) {
-                        Log.d(mytag, "Запрос в вк выполнился");
-                        super.onComplete(response);
-                        try {
-                            VKApiAudio audio = ((VKList<VKApiAudio>) response.parsedModel).get(0);
-                            SONGS[oo * 4 + o][0] = song;
-                            SONGS[oo * 4 + o][1] = audio.url;
-                            o++;
-                            if (o <= 3) {
-                                doInBackground();
-                            } else {
-                                if (oo == 0)
-                                    DOITMOTHERFUCKER();
-                            }
-                        } catch (IndexOutOfBoundsException e) {
-                            doInBackground();
-                        }
-                    }
-                });
-            } else {
-                SONGS[oo * 4 + o][0] = song;
-                o++;
-                if (o <= 3) {
-                    doInBackground();
+            SONGS[oo * 4 + o][0] = song;
+            o++;
+            if (o <= 3) {
+                doInBackground();
+            }
+            else {
+                if (oo<=3){
+                    oo++;
+                    o = 0;
+                    were = "";
+                    l();
                 } else {
-                    if (oo == 0)
-                        DOITMOTHERFUCKER();
+                    v();
                 }
             }
-            Log.d(mytag,"mytask"+String.valueOf(System.currentTimeMillis()));
             return null;
         }
     }
+    public void DOITMOTHERFUCKER() {
+        song_time.setText("Время: 15");
+        play_music = new Play_music();
+        if (!stop) {
+            play_music.execute();
+        } else return;
+        Log.d("padf","111");
+        while (finish);//ждем, пока музыка заиграет
+        Log.d("padf","222");
+        button1.setText(SONGS[oo * 4][0]);
+        button2.setText(SONGS[oo * 4 + 1][0]);
+        button3.setText(SONGS[oo * 4 + 2][0]);
+        button4.setText(SONGS[oo * 4 + 3][0]);
+        button1.setBackgroundResource(R.drawable.buttonstyle);
+        button2.setBackgroundResource(R.drawable.buttonstyle);
+        button3.setBackgroundResource(R.drawable.buttonstyle);
+        button4.setBackgroundResource(R.drawable.buttonstyle);
+        button1.setClickable(true);
+        button2.setClickable(true);
+        button3.setClickable(true);
+        button4.setClickable(true);
+        were = new String();
 
-    class MyTask1 extends AsyncTask<Void, Void, Void> {
+        counter = new Count();
+        counter.execute();
+    }
+    class Play_music extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
-            Log.d(mytag,"mytask1"+String.valueOf(System.currentTimeMillis()));
             Random randomGenerator = new Random();
             String url = null;
             while (url == null) {
-                url = SONGS[oo * 4 + newRandomSongNumber][1];
+                url = SONGS[oo * 4 + newRandomSongNumber[oo]][1];
             }
+
             mediaPlayer = MediaPlayer.create(GameActivity2.this, Uri.parse(url));
             int length = mediaPlayer.getDuration();
             mediaPlayer.setAudioStreamType(am.STREAM_MUSIC);
             mediaPlayer.seekTo(length / (randomGenerator.nextInt(28) + 2) + length / (randomGenerator.nextInt(28) + 4));
             mediaPlayer.start();
+            if (stop) {
+                mediaPlayer.stop();
+                mediaPlayer.reset();
+                mediaPlayer.release();
+            }
+            Log.d("false","false");
             Start = System.currentTimeMillis();
-            Log.d(mytag,"mytask1"+String.valueOf(System.currentTimeMillis()));
+            finish= false;
             return null;
         }
     }
+    class Count extends AsyncTask<Void, Integer, Void> {
+        @Override
+        protected Void doInBackground(Void... params) {
+            for(int hg=14;hg>=0;hg--){
+                if (finish) return null;
+                Log.d("12",String.valueOf(finish));
+                try {
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                publishProgress(hg);
+            }
+            return null;
+        }
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
+            song_time.setText("Время: "+String.valueOf(values[0]));
+        }
 
-    public void DOITMOTHERFUCKER() {
-        Log.d(mytag,"doit"+String.valueOf(System.currentTimeMillis()));
-        MyTask1 mv1 = new MyTask1();
-        mv1.execute();
-        Handler handler1 = new Handler();
-        handler1.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                button1.setText(SONGS[oo * 4][0]);
-                button2.setText(SONGS[oo * 4 + 1][0]);
-                button3.setText(SONGS[oo * 4 + 2][0]);
-                button4.setText(SONGS[oo * 4 + 3][0]);
-                button1.setBackgroundColor(Color.GRAY);
-                button2.setBackgroundColor(Color.GRAY);
-                button3.setBackgroundColor(Color.GRAY);
-                button4.setBackgroundColor(Color.GRAY);
-                button1.setClickable(true);
-                button2.setClickable(true);
-                button3.setClickable(true);
-                button4.setClickable(true);
-            }
-        }, 1000);
-        o = 0;
-        Handler handler = new Handler();
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                were = new String();
-                Random randomGenerator = new Random();
-                newRandomSongNumber = randomGenerator.nextInt(4);
-                oo++;
-                MyTask abc = new MyTask();
-                abc.execute();
-            }
-        }, 2000);
-        Log.d(mytag,"do it"+String.valueOf(System.currentTimeMillis()));
     }
-
     public void Button1Click(View view) {
         ButtonClicked(button1, 0);
     }
@@ -293,47 +328,51 @@ public class GameActivity2 extends AppCompatActivity {
     }
 
     public void ButtonClicked(final Button button, int i) {
-        Log.d(mytag,"Buttonclicked");
-        End = System.currentTimeMillis();
-        if (RandomSongNumber == i) {
-            button.setBackgroundColor(Color.GREEN);
-            Points += Math.pow(10, ((Start - End)*0.0001)) *10000;
-            win++;
-            RIGHT_CHOICES += String.valueOf(i) + '-';
-        } else {
-            RIGHT_CHOICES += String.valueOf(i) + String.valueOf(RandomSongNumber) + '-';
-            button.setBackgroundColor(Color.RED);
+        if (!finish) {
+            End = System.currentTimeMillis();
+            if (newRandomSongNumber[oo] == i) {
+                button.setBackgroundResource(R.drawable.rightbutton);
+                Points += Math.pow(10, ((Start - End) * 0.0001)) * 10000;
+                win++;
+                RIGHT_CHOICES += String.valueOf(i) + '-';
+                TextView points = (TextView) findViewById(R.id.points);
+                points.setText("Очки: "+String.valueOf(Points));
+            } else {
+                RIGHT_CHOICES += String.valueOf(i) + String.valueOf(newRandomSongNumber[oo]) + '-';
+                button.setBackgroundResource(R.drawable.falsebutton);
+            }
+            button1.setClickable(false);
+            button2.setClickable(false);
+            button3.setClickable(false);
+            button4.setClickable(false);
+
+            if (mediaPlayer.isPlaying()) {
+                mediaPlayer.stop();
+                mediaPlayer.reset();
+                mediaPlayer.release();
+                finish = true;
+            }
+            toBegin();
         }
-        button1.setClickable(false);
-        button2.setClickable(false);
-        button3.setClickable(false);
-        button4.setClickable(false);
-        if (mediaPlayer.isPlaying()) {
-            mediaPlayer.stop();
-            mediaPlayer.release();
-        }
-        Log.d(mytag,String.valueOf(System.currentTimeMillis()-End));
-        toBegin();
     }
 
     public void toBegin() {
-        Log.d(mytag,"tobegin"+String.valueOf(System.currentTimeMillis()));
-        switch (RandomSongNumber) {
+        switch (newRandomSongNumber[oo]) {
             case 0:
-                button1.setBackgroundColor(Color.GREEN);
+                button1.setBackgroundResource(R.drawable.rightbutton);
                 break;
             case 1:
-                button2.setBackgroundColor(Color.GREEN);
+                button2.setBackgroundResource(R.drawable.rightbutton);
                 break;
             case 2:
-                button3.setBackgroundColor(Color.GREEN);
+                button3.setBackgroundResource(R.drawable.rightbutton);
                 break;
             case 3:
-                button4.setBackgroundColor(Color.GREEN);
+                button4.setBackgroundResource(R.drawable.rightbutton);
                 break;
         }
+        oo++;
         if (oo <= 3) {
-            RandomSongNumber = newRandomSongNumber;
             Handler handler = new Handler();
             handler.postDelayed(new Runnable() {
                 @Override
@@ -342,9 +381,10 @@ public class GameActivity2 extends AppCompatActivity {
                 }
             }, 1000);
         } else {
-            mediaPlayer.release();
-            SaveResults abc = new SaveResults();
-            abc.execute();
+            exit = false;
+            finish = true;
+            SaveResults save_evrthng = new SaveResults();
+            save_evrthng.execute();
             Handler handler = new Handler();
             handler.postDelayed(new Runnable() {
                 @Override
@@ -362,12 +402,10 @@ public class GameActivity2 extends AppCompatActivity {
             }, 1000);
 
         }
-        Log.d(mytag,"tobegin"+String.valueOf(System.currentTimeMillis()));
     }
     class SaveResults extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
-            Log.d(mytag,"saveresults"+String.valueOf(System.currentTimeMillis()));
             try {
                 BufferedReader ge = new BufferedReader(new InputStreamReader(
                         openFileInput("results")));
@@ -406,26 +444,38 @@ public class GameActivity2 extends AppCompatActivity {
             }  catch (IOException e){
 
             }
-            Log.d(mytag,"saveresults"+String.valueOf(System.currentTimeMillis()));
             return null;
         }
     }
     @Override
     public void onBackPressed() {
         if (back_pressed + 2000 > System.currentTimeMillis()) {
+            if (!finish){
+                mediaPlayer.stop();
+                mediaPlayer.reset();
+                mediaPlayer.release();
+            }
+            stop = true;
             super.onBackPressed();
         } else
             Toast.makeText(getBaseContext(), "Нажмите еще раз, чтобы закончить игру!",
                     Toast.LENGTH_SHORT).show();
         back_pressed = System.currentTimeMillis();
     }
-
     @Override
-    protected void onUserLeaveHint() {
-        mediaPlayer.stop();
-        mediaPlayer.release();
-        Intent intent = new Intent(GameActivity2.this,APPMAIN.class);
-        startActivity(intent);
-        super.onUserLeaveHint();
+    public void onUserLeaveHint() {
+        if (!finish){
+            mediaPlayer.stop();
+            mediaPlayer.reset();
+            mediaPlayer.release();
+        }
+        stop = true;
+        if (exit) {
+            Intent intent = new Intent(GameActivity2.this, APPMAIN.class);
+            startActivity(intent);
+            super.onUserLeaveHint();
+        }
     }
+
 }
+
